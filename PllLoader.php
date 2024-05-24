@@ -1,7 +1,7 @@
 <?php
 class PllLoader
 {
-    public static function initialize(string $library)
+    public static function initialize(string $library, string $directory = '')
     {
         if(!preg_match('/^.+\:([0-9][\.]?){4}$/i', $library))
         {
@@ -9,7 +9,7 @@ class PllLoader
         }
         list($name, $version) = explode(':', $library);
         
-        $dir = __DIR__.'/'.$name;
+        $dir = ($directory === '' ? '' : $directory.'/').$name;
         $file = $dir.'.pll';
 
         if(file_exists($file))
