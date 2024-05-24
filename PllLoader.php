@@ -9,7 +9,7 @@ class PllLoader
         }
         list($name, $version) = explode(':', $library);
         
-        $dir = __DIR__.'/'.$name;
+        $dir = $name;
         $file = $dir.'.pll';
 
         if(file_exists($file))
