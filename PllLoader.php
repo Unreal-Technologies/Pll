@@ -190,7 +190,7 @@ class PllLoader
         spl_autoload_register(function(string $className) use($dir)
         {
             $parts = explode('\\', $className);
-            $target = $dir.'/Sources/'.implode('/', array_slice($parts, 1, count($parts))).'.php';
+            $target = $dir.'/'.implode('/', array_slice($parts, 1, count($parts))).'.php';
             
             require_once($target);
         });
