@@ -4,25 +4,19 @@ class PllLoader
     private const DEBUG_VERSION = '0.0.0.-1';
     
     /**
-     * @param string $library
+     * @param string $name
      * @param string $directory
      * @return string
      * @throws \Exception
      */
-    public static function initialize(string $library, string $directory = ''): string
+    public static function initialize(string $name, string $directory = ''): string
     {
-        if(!preg_match('/^.+\:([0-9][\.]?){4}$/i', $library))
-        {
-            throw new \Exception('Invalid library: "'.$library.'"');
-        }
-        list($name, $version) = explode(':', $library);
-        
         $dir = ($directory === '' ? '' : $directory.'/').$name;
         $file = $dir.'.pll';
 
         if(file_exists($file))
         {
-            return PllLoader::fileMode($file, $version);
+            return PllLoader::fileMode($file);
         }
         else if(file_exists($dir))
         {
@@ -30,7 +24,7 @@ class PllLoader
         }
         else
         {
-            throw new \Exception('Could not locate "'.$library.'"');
+            throw new \Exception('Could not locate "'.$name.'"');
         }
         
         return self::DEBUG_VERSION;
@@ -75,8 +69,7 @@ class PllLoader
     
     /**
      * @param string $file
-     * @param string $version
-     * @return void
+     * @return string
      */
     private static function fileMode(string $file): string
     {
