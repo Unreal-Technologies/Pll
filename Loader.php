@@ -14,8 +14,9 @@ class Loader
      */
     public static function initialize(string $name, string $directory = ''): string
     {
-        $dir = realpath(($directory === '' ? '' : $directory . '/') . $name);
-        $file = $dir . '.pll';
+        $path = realpath(($directory === '' ? './' : $directory . '/')) . '/' . $name;
+        $dir = realpath($path);
+        $file = ( !$dir ? $path : $dir ) . '.pll';
 
         if (file_exists($file)) {
             return Loader::fileMode($file);
