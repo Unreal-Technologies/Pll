@@ -1,7 +1,15 @@
 <?php
 class PllLoader
 {
-    public static function initialize(string $library, string $directory = '')
+    private const DEBUG_VERSION = '0.0.0.-1';
+    
+    /**
+     * @param string $library
+     * @param string $directory
+     * @return string
+     * @throws \Exception
+     */
+    public static function initialize(string $library, string $directory = ''): string
     {
         if(!preg_match('/^.+\:([0-9][\.]?){4}$/i', $library))
         {
@@ -14,7 +22,7 @@ class PllLoader
 
         if(file_exists($file))
         {
-            PllLoader::fileMode($file, $version);
+            return PllLoader::fileMode($file, $version);
         }
         else if(file_exists($dir))
         {
@@ -24,6 +32,30 @@ class PllLoader
         {
             throw new \Exception('Could not locate "'.$library.'"');
         }
+        
+        return self::DEBUG_VERSION;
+    }
+    
+    /**
+     * @param string $directory
+     * @return string
+     */
+    public static function packageDevelop(string $directory): string
+    {
+        $path = realpath($directory);
+        if($path)
+        {
+            spl_autoload_register(function(string $className) use($path)
+            {
+                $parts = explode('\\', $className);
+                $right = array_slice($parts, 1);
+                $file = $path.'\\'.implode('\\', $right).'.php';
+                
+                require_once $file;
+            });
+        }
+        
+        return self::DEBUG_VERSION;
     }
     
     /**
@@ -41,18 +73,34 @@ class PllLoader
         return $v1.'.'.$v2.'.'.$v3.'.'.$v4;
     }
     
-    private static function fileMode(string $file, string $version): void
+    /**
+     * @param string $file
+     * @param string $version
+     * @return void
+     */
+    private static function fileMode(string $file): string
     {
         $pi = pathinfo($file);
-        if(!file_exists($pi['filename']))
+        $mt = filemtime($file);
+        
+        $fh = fopen($file, 'rb');
+        if(!$fh)
         {
-            mkdir($pi['filename'], 0777);
+            return self::DEBUG_VERSION;
         }
         
-        spl_autoload_register(function(string $className) use($file, $pi, $version)
+        $vPad = self::decodeInt(fread($fh, 1));
+        $fileversion = self::decodeVersion($fh, $vPad);
+        $skipVersion = 1 + ($vPad * 4);
+        
+        $directory = __DIR__.'/'.$fileversion.'/'.$pi['filename'].'@'.$mt;
+        
+        fclose($fh);
+        
+        spl_autoload_register(function(string $className) use($file, $directory, $skipVersion)
         {
-            list($ns, $class) = self::parseClass($className);
-            $nsFile = $pi['filename'].'/'.$version.'/'.preg_replace('/[^a-z0-9]+/i', '+', $ns).'.php';
+            $ns = self::parseNamespace($className);
+            $nsFile = $directory.'/'.preg_replace('/[^a-z0-9]+/i', '+', $ns).'.php';
             if(file_exists($nsFile))
             {
                 require_once $nsFile;
@@ -65,12 +113,9 @@ class PllLoader
                 return;
             }
             
-            $vPad = self::decodeInt(fread($fh, 1));
-            $fileversion = self::decodeVersion($fh, $vPad);
-            
-            if($fileversion !== $version)
+            if($skipVersion > 0)
             {
-                throw new \Exception('Version mismatch');
+                fread($fh, $skipVersion);
             }
             $mLen = self::decodeInt(fread($fh, 4));
             $map = (array)json_decode(gzdecode(fread($fh, $mLen)));
@@ -95,12 +140,14 @@ class PllLoader
             $pi2 = pathinfo($nsFile);
             if(!file_exists($pi2['dirname']))
             {
-                mkdir($pi2['dirname'], 0777);
+                mkdir($pi2['dirname'], 0777, true);
             }
             
             file_put_contents($nsFile, $fileData);
             require_once $nsFile;
         });
+        
+        return $fileversion;
     }
     
     /**
@@ -118,20 +165,20 @@ class PllLoader
         return bindec($binary);
     }
     
-    private static function parseClass($className)
+    /**
+     * @param string $className
+     * @return string|null
+     */
+    private static function parseNamespace(string $className): ?string
     {
         $parts = explode('\\', $className);
         if(count($parts) === 1)
         {
-            return [null, $parts[0]];
+            return null;
         }
         
-        $last = $parts[count($parts) - 1];
         $ns = array_slice($parts, 0, count($parts) - 1);
-        return [
-            implode('\\', $ns),
-            $last
-        ];
+        return implode('\\', $ns);
     }
     
     /**
